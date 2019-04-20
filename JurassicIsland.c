@@ -22,9 +22,19 @@ typedef struct _ExplorerResult
     float standardDeviation[NUMBER_ROW][NUMBER_COLUMN];
 }ExplorerResult;
 
+const Position DirectionMap[8] = {//Direction map for a random step
+    {0, -1},//N
+    {1, -1},//NE
+    {1, 0},//E
+    {1, 1},//SE
+    {0, 1},//S
+    {-1,1},//SW
+    {-1,0},//w
+    {-1,-1}};//NW
+
 void explorer(const char IslandMap[NUMBER_ROW][NUMBER_COLUMN], ExplorerResult* result);
 float calStandardDeviation(const float mean, const int num, const int *values);
-void randomStep(const Position *directionMap, Position *current);
+void randomStep(Position *current);
 int status(const char map[NUMBER_ROW][NUMBER_COLUMN], const Position *current);
 void printResults(const char *header, float data[NUMBER_ROW][NUMBER_COLUMN]);
 
@@ -64,80 +74,75 @@ int main()
 
 void explorer(const char IslandMap[NUMBER_ROW][NUMBER_COLUMN], ExplorerResult* result)
 {
-    const Position DirectionMap[8] = {
-        {-1, -1},
-        {-1, 0},
-        {-1, 1},
-        {0, -1},
-        {0, 1},
-        {1,-1},
-        {1,0},
-        {1,1}};
-
     for(int i =0; i < NUMBER_ROW; i++)
     {
         for(int j =0; j < NUMBER_COLUMN; j++)
         {
+            //Starting from cell (i, j), only perform the random walks when the starting cell is valid('L' or 'B')
             if((IslandMap[i][j] == 'L') || (IslandMap[i][j] == 'B'))
             {
-                int sumSW = 0, totalSteps = 0;
-                int steps[NUMBER_ROUND];
+                int sumSW = 0;//Number of successful walks, initialized as 0
+				int totalSteps = 0;//Number of the total steps for all of the successful walks, used to calculate the mean path length
+                int steps[NUMBER_ROUND];//Steps of each successful walks, the maximum considiton is the number of round
                 for(int r = 0; r < NUMBER_ROUND; r++)
                 {
-                    Position current = {i, j};
-                    steps[sumSW] = 0;
-                    int ret = 2;
+                    Position current = {i, j};//Initialize the starting cell as (i, j) for each random walks
+                    int ret = 2;//Initialize the status as "continue walk"
+                    steps[sumSW] = 0;//Initialize the steps of this random walks as 0
+
                     for(int s = 0; (s < MAX_STEPS) && (2 == ret); s++,steps[sumSW]++)
-                    {
-                        randomStep(DirectionMap, &current);
+                    {//Perform a random step until the status is not "continue walk" or the maximum steps reached
+                        randomStep(&current);
                         ret = status(IslandMap, &current);
                     }
 
                     if(0 == ret)//"successfully made it off the island"
-                    {
-                        //printf("i:%d, j:%d, r:%d, steps:%d\n", i, j, r, steps[sum_sw]);
+                    {//Add the steps of this successful walks to the total steps, then increase the number of successful walks
                         totalSteps += steps[sumSW++];
                     }
                     else if(2 == ret)
-                    {
-                        printf("Warning: still walking after %d steps, start cell is (%d,%d)\n", MAX_STEPS, i, j);
+                    {//Abnormal condition, the random walk continues for a maximum steps
+                        printf("Warning: still walking after %d steps, starting cell is (%d,%d)\n", MAX_STEPS, i, j);
                     }
                 }
                 if(sumSW > 0)
                 {
-                    result->probability[i][j] = ((float)sumSW/NUMBER_ROUND)*100;
-                    result->meanPath[i][j]  = (float)totalSteps/sumSW;
-                    result->standardDeviation[i][j] = calStandardDeviation(result->meanPath[i][j], sumSW, steps);
+                    result->probability[i][j] = ((float)sumSW/NUMBER_ROUND)*100;//Calculate the probability, using the number of successful walks divide the total random walks
+                    result->meanPath[i][j]  = (float)totalSteps/sumSW;//Calculate the mean path length, using the number of the total steps divide the number of successful walks
+                    result->standardDeviation[i][j] = calStandardDeviation(result->meanPath[i][j], sumSW, steps);//Calculate the standard deviation of path lengths of successful walks
                 }
             }
         }
     }
 }
 
+//Calculate the standard deviation of path lengths of successful walks
 float calStandardDeviation(const float mean, const int num, const int *values)
 {
-    float total_deviation = 0.0;
+    float totalDeviation = 0.0;
     for(int i = 0; i < num; i++)
     {
-        total_deviation += PF(values[i] - mean);
+        totalDeviation += PF(values[i] - mean);
     }
-    return sqrt(total_deviation/num);
+    return sqrt(totalDeviation/num);
 }
 
-void randomStep(const Position *directionMap, Position *current)
+//Perform a random step to change the current position
+void randomStep(Position *current)
 {
     const int directionIndex = rand()%8;
-    const Position *direction = &directionMap[directionIndex];
-    current->x = current->x + direction->x;
-    current->y = current->y + direction->y;
+    const Position *direction = &DirectionMap[directionIndex];
+    current->x += direction->x;
+    current->y += direction->y;
 }
 
+//Check the current status
 int status(const char map[NUMBER_ROW][NUMBER_COLUMN], const Position *current)
 {
     int result = 0;//"successfully made it off the island"
     const int x = current->x, y = current->y;
     if((x >= 0 && x < NUMBER_ROW)  && (y >= 0 && y < NUMBER_COLUMN))
-    {
+    {//Still in the island
         if((map[x][y] == 'L') || (map[x][y] == 'B'))
         {
             result = 2;//"continue walk"
@@ -150,6 +155,7 @@ int status(const char map[NUMBER_ROW][NUMBER_COLUMN], const Position *current)
     return result;
 }
 
+//Out put the result
 void printResults(const char *header, float data[NUMBER_ROW][NUMBER_COLUMN])
 {
     printf("\n%s\n", header);
